@@ -178,6 +178,14 @@ tr:hover td { background: var(--surface2); }
         </div>
       </div>
 
+      <div class="ctrl-section" style="grid-column:1/-1">
+        <div class="ctrl-label">Filter by course</div>
+        <select id="course-filter" style="width:100%;padding:7px 10px;border:1px solid var(--border2);border-radius:var(--radius);font-size:13px;color:var(--text);background:var(--surface2);outline:none;font-family:inherit" onchange="updateCourseFilter()">
+          <option value="__all__">All courses</option>
+        </select>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">Course list populates after first report. Includes canvas course number.</div>
+      </div>
+
     </div>
     <div class="btn-row">
       <button class="btn" id="gen-btn" onclick="generate()">Generate report</button>
@@ -336,15 +344,16 @@ async function generate() {
     }
 
     const allCourses = Object.keys(courseAlltime).sort((a,b) => (coursePeriod[b]||0)-(coursePeriod[a]||0));
-    const totalPeriod  = Object.values(coursePeriod).reduce((a,b)=>a+b,0);
+    const activeCourseSet = courseFilterVal === '__all__' ? new Set(allCourses) : new Set([courseFilterVal]);
+  const totalPeriod  = filteredCourses.reduce((a,c)=>(a+(coursePeriod[c]||0)),0);
     const totalPrev    = Object.values(coursePrev).reduce((a,b)=>a+b,0);
     const totalAlltime = Object.values(courseAlltime).reduce((a,b)=>a+b,0);
     const activeCount  = allCourses.filter(c=>coursePeriod[c]>0).length;
     const overallPct   = totalPrev > 0 ? ((totalPeriod-totalPrev)/totalPrev*100).toFixed(1) : null;
 
-    const fromLabel = fromDt.toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'});
-    const toLabel   = toDt.toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'});
-    const periodLabel = `${fromLabel} — ${toLabel}`;
+    const fromLabel   = fromDt ? fromDt.toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}) : null;
+    const toLabel     = toDt   ? toDt.toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'})   : null;
+    const periodLabel = fromLabel && toLabel ? fromLabel+' — '+toLabel : fromLabel ? 'From '+fromLabel : 'All time';
 
     hideStatus();
     document.getElementById('last-generated').textContent = `Generated ${new Date().toLocaleString('en-AU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}`;
@@ -362,6 +371,7 @@ function renderDashboard(allCourses, coursePeriod, coursePrev, courseAlltime, mo
   allRows = [allCourses, coursePeriod, coursePrev, courseAlltime, monthlyTrend, meta];
   const {totalPeriod, totalPrev, totalAlltime, activeCount, overallPct, periodLabel} = meta;
   document.getElementById('dashboard').style.display = 'block';
+  populateCourseDropdown(allCourses);
 
   // ── Cards ──
   const pctClass = overallPct === null ? '' : (parseFloat(overallPct) >= 0 ? 'green' : 'red');
@@ -395,7 +405,9 @@ function renderDashboard(allCourses, coursePeriod, coursePrev, courseAlltime, mo
     });
   }
 
-  const top = allCourses.slice(0,15);
+  const courseFilterVal = document.getElementById('course-filter')?.value || '__all__';
+  const filteredCourses = courseFilterVal === '__all__' ? allCourses : allCourses.filter(c=>c===courseFilterVal);
+  const top = filteredCourses.slice(0,15);
   const bLabels = top.map(c=>c.split('(')[0].trim().substring(0,40));
 
   // Bar chart
@@ -444,11 +456,33 @@ function renderDashboard(allCourses, coursePeriod, coursePrev, courseAlltime, mo
   }
 }
 
+function updateCourseFilter() {
+  if(window._tableData) filterTable();
+}
+
+function populateCourseDropdown(allCourses) {
+  const sel = document.getElementById('course-filter');
+  const current = sel.value;
+  sel.innerHTML = '<option value="__all__">All courses</option>';
+  allCourses.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c;
+    opt.textContent = c;
+    if(c === current) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
 function filterTable() {
   if(!window._tableData) return;
   const q = (document.getElementById('table-search')?.value||'').toLowerCase();
   const showPeriod = opt('c-col-period'), showPrev = opt('c-col-prev'), showAt = opt('c-col-alltime'), showPct = opt('c-col-pct');
-  const rows = window._tableData.filter(r=>!q||r.c.toLowerCase().includes(q));
+  const courseFilter = document.getElementById('course-filter')?.value || '__all__';
+  const rows = window._tableData.filter(r=>{
+    if(q && !r.c.toLowerCase().includes(q)) return false;
+    if(courseFilter !== '__all__' && r.c !== courseFilter) return false;
+    return true;
+  });
   document.getElementById('table-body').innerHTML = rows.map(({c,p,pv,at,pctHtml})=>`
     <tr>
       <td>${c}</td>

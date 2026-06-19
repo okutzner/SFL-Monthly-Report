@@ -13,7 +13,7 @@ CORS(app)  # Allow all origins — security handled by API token on Canvas side
 #  CONFIGURATION — set as environment variables on Render
 # ─────────────────────────────────────────────
 CATALOGUE_URL   = os.environ.get("CATALOGUE_URL",   "https://creds.curtin.edu.au")
-CATALOGUE_TOKEN = os.environ.get("CATALOGUE_TOKEN", "")
+CATALOGUE_TOKEN = os.environ.get("CATALOGUE_TOKEN", "d3ca3e2dd2048c80f46898a36c43f46a")
 ACCOUNT_ID      = os.environ.get("ACCOUNT_ID",      "1")
 # ─────────────────────────────────────────────
 

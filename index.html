@@ -345,8 +345,9 @@ async function generate() {
     }
 
     const allCourses = Object.keys(courseAlltime).sort((a,b) => (coursePeriod[b]||0)-(coursePeriod[a]||0));
-    const activeCourseSet = courseFilterVal === '__all__' ? new Set(allCourses) : new Set([courseFilterVal]);
-  const totalPeriod  = filteredCourses.reduce((a,c)=>(a+(coursePeriod[c]||0)),0);
+    const courseFilterVal2 = document.getElementById('course-filter')?.value || '__all__';
+  const filteredCourses2 = courseFilterVal2 === '__all__' ? allCourses : allCourses.filter(c=>c===courseFilterVal2);
+  const totalPeriod  = filteredCourses2.reduce((a,c)=>(a+(coursePeriod[c]||0)),0);
     const totalPrev    = Object.values(coursePrev).reduce((a,b)=>a+b,0);
     const totalAlltime = Object.values(courseAlltime).reduce((a,b)=>a+b,0);
     const activeCount  = allCourses.filter(c=>coursePeriod[c]>0).length;
@@ -372,6 +373,7 @@ function renderDashboard(allCourses, coursePeriod, coursePrev, courseAlltime, mo
   allRows = [allCourses, coursePeriod, coursePrev, courseAlltime, monthlyTrend, meta];
   const {totalPeriod, totalPrev, totalAlltime, activeCount, overallPct, periodLabel} = meta;
   document.getElementById('dashboard').style.display = 'block';
+  window._allCourses = allCourses;
   populateCourseDropdown(allCourses);
 
   // ── Cards ──
@@ -406,9 +408,7 @@ function renderDashboard(allCourses, coursePeriod, coursePrev, courseAlltime, mo
     });
   }
 
-  const courseFilterVal = document.getElementById('course-filter')?.value || '__all__';
-  const filteredCourses = courseFilterVal === '__all__' ? allCourses : allCourses.filter(c=>c===courseFilterVal);
-  const top = filteredCourses.slice(0,15);
+  const top = allCourses.slice(0,15);
   const bLabels = top.map(c=>c.split('(')[0].trim().substring(0,40));
 
   // Bar chart
@@ -479,6 +479,7 @@ function filterTable() {
   const q = (document.getElementById('table-search')?.value||'').toLowerCase();
   const showPeriod = opt('c-col-period'), showPrev = opt('c-col-prev'), showAt = opt('c-col-alltime'), showPct = opt('c-col-pct');
   const courseFilter = document.getElementById('course-filter')?.value || '__all__';
+  const filteredCourses = courseFilter === '__all__' ? window._allCourses : (window._allCourses||[]).filter(c=>c===courseFilter);
   const rows = window._tableData.filter(r=>{
     if(q && !r.c.toLowerCase().includes(q)) return false;
     if(courseFilter !== '__all__' && r.c !== courseFilter) return false;

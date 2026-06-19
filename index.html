@@ -296,8 +296,8 @@ async function generate() {
   setStatus('Fetching enrolments from Canvas Catalogue...', true);
 
   try {
-    const fromDt     = from ? new Date(from + 'T00:00:00Z') : null;
-    const toDt       = to   ? new Date(to   + 'T23:59:59Z') : null;
+    const fromDt     = from ? new Date(from + 'T00:00:00') : null;
+    const toDt       = to   ? new Date(to   + 'T23:59:59') : null;
     const periodDays = (fromDt && toDt) ? (toDt - fromDt) / 86400000 : 365;
     const prevToDt   = fromDt ? new Date(fromDt - 1000) : null;
     const prevFromDt = prevToDt ? new Date(prevToDt - periodDays * 86400000) : null;
@@ -315,7 +315,7 @@ async function generate() {
       enrolments = enrolments.concat(data.enrollments || []);
       hasNext = data.has_next || false;
       page++;
-      if(page > 50) break;
+      if(page > 500) break;
     }
     setStatus(`Processing ${enrolments.length} enrolments...`, true);
 
@@ -326,7 +326,8 @@ async function generate() {
       const listing = enr.listing || {};
       const unit = listing.title ? `${listing.title} (${listing.canvas_course_id||'?'})` : '';
       if(!unit) continue;
-      const enrolled = new Date(enr.enrolled_at||'');
+      const enrolledStr = (enr.enrolled_at||'').replace('Z','');
+      const enrolled = new Date(enrolledStr);
 
       courseAlltime[unit] = (courseAlltime[unit]||0) + 1;
 

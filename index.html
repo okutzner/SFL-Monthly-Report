@@ -145,6 +145,7 @@ tr:hover td { background: var(--surface2); }
       <div class="ctrl-section">
         <div class="ctrl-label">Date range</div>
         <div class="presets">
+          <button class="preset-btn" onclick="setPreset('all',this)">All time</button>
           <button class="preset-btn" onclick="setPreset('thismonth',this)">This month</button>
           <button class="preset-btn active" onclick="setPreset('lastmonth',this)">Last month</button>
           <button class="preset-btn" onclick="setPreset('last3',this)">Last 3 months</button>
@@ -244,6 +245,7 @@ function setPreset(p, el) {
   el.classList.add('active');
   const now = new Date(), y = now.getFullYear(), m = now.getMonth();
   let from, to;
+  if(p==='all'){ document.getElementById('date-from').value=''; document.getElementById('date-to').value=''; document.getElementById('custom-dates').style.display='none'; return; }
   if(p==='thismonth'){ from=new Date(y,m,1); to=new Date(y,m+1,0); }
   else if(p==='lastmonth'){ from=new Date(y,m-1,1); to=new Date(y,m,0); }
   else if(p==='last3'){ from=new Date(y,m-3,1); to=new Date(y,m+1,0); }
@@ -278,7 +280,7 @@ async function generate() {
   if(!API_URL){ alert('Please connect to your backend API first.'); document.getElementById('api-setup').style.display='block'; return; }
   const from = document.getElementById('date-from').value;
   const to   = document.getElementById('date-to').value;
-  if(!from||!to){ alert('Please select a date range.'); return; }
+  if(from && to && new Date(from) > new Date(to)){ alert('From date must be before To date.'); return; }
 
   const btn = document.getElementById('gen-btn');
   btn.disabled = true; btn.textContent = 'Loading...';
@@ -286,17 +288,27 @@ async function generate() {
   setStatus('Fetching enrolments from Canvas Catalogue...', true);
 
   try {
-    const fromDt = new Date(from + 'T00:00:00Z');
-    const toDt   = new Date(to   + 'T23:59:59Z');
-    const periodDays = (toDt - fromDt) / 86400000;
-    const prevToDt   = new Date(fromDt - 1000);
-    const prevFromDt = new Date(prevToDt - periodDays * 86400000);
+    const fromDt     = from ? new Date(from + 'T00:00:00Z') : null;
+    const toDt       = to   ? new Date(to   + 'T23:59:59Z') : null;
+    const periodDays = (fromDt && toDt) ? (toDt - fromDt) / 86400000 : 365;
+    const prevToDt   = fromDt ? new Date(fromDt - 1000) : null;
+    const prevFromDt = prevToDt ? new Date(prevToDt - periodDays * 86400000) : null;
 
-    setStatus('Fetching enrolments...', true);
-    const res = await fetch(`${API_URL}/enrolments`);
-    if(!res.ok) throw new Error(`API error ${res.status}`);
-    const data = await res.json();
-    const enrolments = data.enrollments || [];
+    // Fetch all pages one at a time to avoid backend timeout
+    let enrolments = [], page = 1, hasNext = true;
+    while(hasNext) {
+      setStatus(`Fetching enrolments... (page ${page})`, true);
+      const res = await fetch(`${API_URL}/enrolments?page=${page}`);
+      if(!res.ok) {
+        const err = await res.json().catch(()=>({error:`HTTP ${res.status}`}));
+        throw new Error(err.error || `API error ${res.status}`);
+      }
+      const data = await res.json();
+      enrolments = enrolments.concat(data.enrollments || []);
+      hasNext = data.has_next || false;
+      page++;
+      if(page > 50) break;
+    }
     setStatus(`Processing ${enrolments.length} enrolments...`, true);
 
     const coursePeriod  = {}, coursePrev = {}, courseAlltime = {};
@@ -311,12 +323,13 @@ async function generate() {
       courseAlltime[unit] = (courseAlltime[unit]||0) + 1;
 
       if(enr.enrolled_at) {
-        if(enrolled >= fromDt && enrolled <= toDt) {
+        const inPeriod = !fromDt || (enrolled >= fromDt && (!toDt || enrolled <= toDt));
+        if(inPeriod) {
           coursePeriod[unit] = (coursePeriod[unit]||0) + 1;
           const mk = `${enrolled.getFullYear()}-${pad(enrolled.getMonth()+1)}`;
           monthlyTrend[mk] = (monthlyTrend[mk]||0) + 1;
         }
-        if(enrolled >= prevFromDt && enrolled <= prevToDt) {
+        if(prevFromDt && prevToDt && enrolled >= prevFromDt && enrolled <= prevToDt) {
           coursePrev[unit] = (coursePrev[unit]||0) + 1;
         }
       }

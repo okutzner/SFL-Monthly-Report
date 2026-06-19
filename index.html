@@ -345,9 +345,7 @@ async function generate() {
     }
 
     const allCourses = Object.keys(courseAlltime).sort((a,b) => (coursePeriod[b]||0)-(coursePeriod[a]||0));
-    const courseFilterVal2 = document.getElementById('course-filter')?.value || '__all__';
-  const filteredCourses2 = courseFilterVal2 === '__all__' ? allCourses : allCourses.filter(c=>c===courseFilterVal2);
-  const totalPeriod  = filteredCourses2.reduce((a,c)=>(a+(coursePeriod[c]||0)),0);
+    const totalPeriod  = allCourses.reduce((a,c)=>(a+(coursePeriod[c]||0)),0);
     const totalPrev    = Object.values(coursePrev).reduce((a,b)=>a+b,0);
     const totalAlltime = Object.values(courseAlltime).reduce((a,b)=>a+b,0);
     const activeCount  = allCourses.filter(c=>coursePeriod[c]>0).length;
